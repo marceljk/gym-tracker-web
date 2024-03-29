@@ -2,9 +2,46 @@
   <v-container class="fill-height pa-4">
     <v-row>
       <v-col cols="12" md="4">
-        <v-select label="Days" :items="statDays" v-model="selectedDays" multiple></v-select>
-        <v-text-field label="From" v-model="filterFrom"></v-text-field>
-        <v-text-field label="Until" v-model="filterUntil"></v-text-field>
+        <v-select
+          label="Days"
+          :items="statDays"
+          v-model="selectedDays"
+          multiple
+        ></v-select>
+        <v-text-field
+          label="From"
+          :active="timePickerFrom"
+          :focused="timePickerFrom"
+          readonly
+          v-model="filterFrom"
+          clearable
+        >
+          <v-dialog v-model="timePickerFrom" activator="parent" width="auto">
+            <v-time-picker
+              v-if="timePickerFrom"
+              format="24hr"
+              v-model="filterFrom"
+              @update:model-value="(timePickerFrom = false)"
+              ></v-time-picker>
+          </v-dialog>
+        </v-text-field>
+        <v-text-field
+          label="Until"
+          :active="timePickerUntil"
+          :focused="timePickerUntil"
+          readonly
+          v-model="filterUntil"
+          clearable
+        >
+          <v-dialog v-model="timePickerUntil" activator="parent" width="auto">
+            <v-time-picker
+              v-if="timePickerUntil"
+              format="24hr"
+              v-model="filterUntil"
+              @update:model-value="(timePickerUntil = false)"
+              ></v-time-picker>
+          </v-dialog>
+        </v-text-field>
       </v-col>
       <v-col cols="12" md="8">
         <Line id="my-chart-id" :options="chartOptions" :data="chartData" />
@@ -14,24 +51,49 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { Line } from 'vue-chartjs'
-import { Chart as ChartJS, Title, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale } from 'chart.js'
-
-ChartJS.register(Title, Tooltip, Legend, PointElement, LineElement, CategoryScale, LinearScale);
+import { computed, ref, watch } from "vue";
+import { Line } from "vue-chartjs";
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+} from "chart.js";
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  PointElement,
+  LineElement,
+  CategoryScale,
+  LinearScale
+);
 
 const COLORS = [
-  'rgb(255, 99, 132)',
-  'rgb(54, 162, 235)',
-  'rgb(255, 206, 86)',
-  'rgb(75, 192, 192)',
-  'rgb(153, 102, 255)',
-  'rgb(255, 159, 64)',
-  'rgb(255, 99, 132)',
-  'rgb(54, 162, 235)'
+  "rgb(255, 99, 132)",
+  "rgb(54, 162, 235)",
+  "rgb(255, 206, 86)",
+  "rgb(75, 192, 192)",
+  "rgb(153, 102, 255)",
+  "rgb(255, 159, 64)",
+  "rgb(255, 99, 132)",
+  "rgb(54, 162, 235)",
 ];
 
-const statDays = ref(["Today", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
+const statDays = ref([
+  "Today",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+]);
 const selectedDays = ref(["Today"]);
 const labels = ref([]);
 const statsData = ref({});
@@ -42,12 +104,18 @@ const chartOptions = ref({
   aspectRatio: 0.5,
 });
 
+const timePickerFrom = ref(false);
+const timePickerUntil = ref(false);
 
 watch(
   [selectedDays, filterFrom, filterUntil],
   async ([newSelectedDays, newFilterFrom, newFilterUntil]) => {
     resetChartData();
-    await fetchDataAndUpdateStats(newSelectedDays, newFilterFrom, newFilterUntil);
+    await fetchDataAndUpdateStats(
+      newSelectedDays,
+      newFilterFrom,
+      newFilterUntil
+    );
   },
   { immediate: true }
 );
@@ -80,7 +148,6 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
   });
 }
 
-
 const chartData = computed(() => ({
   labels: labels.value,
   datasets: Object.keys(statsData.value).map((day, index) => ({
@@ -91,7 +158,6 @@ const chartData = computed(() => ({
     tension: 0.3,
     radius: 5,
     pointHitRadius: 30,
-  }))
+  })),
 }));
-
 </script>
