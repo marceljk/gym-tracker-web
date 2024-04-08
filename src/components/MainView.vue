@@ -7,6 +7,8 @@
           :items="statDays"
           v-model="selectedDays"
           multiple
+          clearable
+          open-on-clear
         ></v-select>
         <v-text-field
           label="From"
