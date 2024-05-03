@@ -82,7 +82,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "http://raspberrypi:14000",
+        target: "http://localhost:14000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       }
