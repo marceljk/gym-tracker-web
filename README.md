@@ -1,8 +1,8 @@
 # Gym Visitor Stats
 
-<img alt="Screenshot of the webapp" title="Screenshot of the webapp" src="images/gym-stats-screenshot.webp" align="right" style="margin: 8px; width:350px">
+![Screenshot of the webapp](images/gym-stats-screenshot.webp)
 
-[Link to the app](https://gym.marceljacek.me) &nbsp; [Code on Github](https://github.com/marceljk/gym-tracker-web)
+[Link to the app](https://gym.marceljacek.me)
 
 This web app tracks the trend of visitors at a gym and compares it with historical averages for different days of the week.
 
