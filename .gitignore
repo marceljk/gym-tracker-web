@@ -22,3 +22,21 @@ pnpm-debug.log*
 *.sw?
 
 *.db
+frontend/dist/apple-touch-icon.png
+frontend/dist/favicon.ico
+frontend/dist/index.html
+frontend/dist/manifest.webmanifest
+frontend/dist/mask-icon.png
+frontend/dist/pwa-192x192.png
+frontend/dist/pwa-512x512.png
+frontend/dist/pwa-maskable-192x192.png
+frontend/dist/pwa-maskable-512x512.png
+frontend/dist/registerSW.js
+frontend/dist/sw.js
+frontend/dist/workbox-3e911b1d.js
+frontend/dist/assets/index-DpbAtdju.css
+frontend/dist/assets/index-Sr97hpND.js
+frontend/dist/assets/materialdesignicons-webfont-CgCzGbLl.woff
+frontend/dist/assets/materialdesignicons-webfont-CYDMK1kx.woff2
+frontend/dist/assets/materialdesignicons-webfont-D3kAzl71.ttf
+frontend/dist/assets/materialdesignicons-webfont-DttUABo4.eot

@@ -5,7 +5,7 @@ const moment = require('moment');
 
 const express = require('express');
 const app = express();
-const PORT = 14000;
+const PORT = process.env.PORT || 3030;
 
 const API_URL = process.env.API_URL;
 
@@ -15,7 +15,7 @@ const API_OPTIONS = {
   }
 };
 
-const db = new sqlite3.Database('data.db');
+const db = new sqlite3.Database('./db/data.db');
 
 db.serialize(() => {
   db.run('CREATE TABLE IF NOT EXISTS stats (timestamp TEXT PRIMARY KEY, value REAL, weight INTEGER)');
