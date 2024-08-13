@@ -23,6 +23,7 @@
               v-if="timePickerFrom"
               format="24hr"
               v-model="filterFrom"
+              :allowed-minutes="allowedMinutes"
               @update:model-value="(timePickerFrom = false)"
               ></v-time-picker>
           </v-dialog>
@@ -40,6 +41,7 @@
               v-if="timePickerUntil"
               format="24hr"
               v-model="filterUntil"
+              :allowed-minutes="allowedMinutes"
               @update:model-value="(timePickerUntil = false)"
               ></v-time-picker>
           </v-dialog>
@@ -65,6 +67,9 @@ import {
   CategoryScale,
   LinearScale,
 } from "chart.js";
+import { CronJob } from 'cron';
+
+
 ChartJS.register(
   Title,
   Tooltip,
@@ -96,10 +101,11 @@ const statDays = ref([
   "Saturday",
   "Sunday",
 ]);
+
 const selectedDays = ref(["Today"]);
 const labels = ref([]);
 const statsData = ref({});
-const filterFrom = ref("");
+const filterFrom = ref(getDefaultFilterFrom());
 const filterUntil = ref("");
 const chartOptions = ref({
   maintainAspectRatio: false,
@@ -109,18 +115,14 @@ const chartOptions = ref({
 const timePickerFrom = ref(false);
 const timePickerUntil = ref(false);
 
-watch(
-  [selectedDays, filterFrom, filterUntil],
-  async ([newSelectedDays, newFilterFrom, newFilterUntil]) => {
-    resetChartData();
-    await fetchDataAndUpdateStats(
-      newSelectedDays,
-      newFilterFrom,
-      newFilterUntil
-    );
-  },
-  { immediate: true }
-);
+const allowedMinutes = (m) => m % 15 == 0
+
+const job = CronJob.from({
+  cronTime: '5 */15 * * * *',
+  onTick: () => fetchDataAndUpdateStats(selectedDays.value, filterFrom.value, filterUntil.value),
+  start: true,
+  timeZone: "Europe/Berlin"
+});
 
 // Reset chart data
 function resetChartData() {
@@ -133,9 +135,16 @@ async function fetchDataAndUpdateStats(selectedDays, filterFrom, filterUntil) {
   const promises = selectedDays.map(async (day, index) => {
     const response = await fetch(`/api/${day.toLowerCase()}`);
     const data = await response.json();
-    updateStatsForDay(data, day, index, filterFrom, filterUntil);
+    return {
+      data,
+      day,
+      index,
+    }
   });
-  await Promise.all(promises);
+  const allData = await Promise.all(promises);
+  allData.map(({data, day, index}) => {
+    updateStatsForDay(data, day, index, filterFrom, filterUntil);
+  })
 }
 
 // Update stats for a specific day
@@ -150,6 +159,15 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
   });
 }
 
+function getDefaultFilterFrom(diffHours = 3) {
+  const hours = new Date().getHours()
+  if (hours > diffHours) {
+    const predefiniedHour = hours - diffHours;
+    return `${predefiniedHour}:00`;
+  }
+  return "";
+}
+
 const chartData = computed(() => ({
   labels: labels.value,
   datasets: Object.keys(statsData.value).map((day, index) => ({
@@ -162,4 +180,18 @@ const chartData = computed(() => ({
     pointHitRadius: 30,
   })),
 }));
+
+
+watch(
+  [selectedDays, filterFrom, filterUntil],
+  async ([newSelectedDays, newFilterFrom, newFilterUntil]) => {
+    resetChartData();
+    await fetchDataAndUpdateStats(
+      newSelectedDays,
+      newFilterFrom,
+      newFilterUntil
+    );
+  },
+  { immediate: true }
+);
 </script>
