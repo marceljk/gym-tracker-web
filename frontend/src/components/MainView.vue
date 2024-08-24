@@ -167,8 +167,6 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
   });
 }
 
-fetch("/api/live")
-
 function getDefaultFilterFrom(diffHours = 5) {
   const hours = new Date().getHours()
   if (hours > diffHours) {
