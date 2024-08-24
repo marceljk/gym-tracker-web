@@ -162,7 +162,7 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
 function getDefaultFilterFrom(diffHours = 3) {
   const hours = new Date().getHours()
   if (hours > diffHours) {
-    const predefiniedHour = hours - diffHours;
+    const predefiniedHour = (hours - diffHours).toString().padStart(2, 0);
     return `${predefiniedHour}:00`;
   }
   return "";
