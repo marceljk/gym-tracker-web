@@ -18,13 +18,16 @@
           v-model="filterFrom"
           clearable
         >
+        <!-- v-model="filterFrom" -->
           <v-dialog v-model="timePickerFrom" activator="parent" width="auto">
             <v-time-picker
               v-if="timePickerFrom"
               format="24hr"
-              v-model="filterFrom"
               :allowed-minutes="allowedMinutes"
-              @update:model-value="(timePickerFrom = false)"
+              @update:model-value="(e) => {
+                filterFrom = e;
+                timePickerFrom = false;
+              }"
               ></v-time-picker>
           </v-dialog>
         </v-text-field>
@@ -40,9 +43,11 @@
             <v-time-picker
               v-if="timePickerUntil"
               format="24hr"
-              v-model="filterUntil"
               :allowed-minutes="allowedMinutes"
-              @update:model-value="(timePickerUntil = false)"
+              @update:model-value="(e) => {
+                filterUntil = e;
+                timePickerUntil = false;
+              }"
               ></v-time-picker>
           </v-dialog>
         </v-text-field>
@@ -102,7 +107,10 @@ const statDays = ref([
   "Sunday",
 ]);
 
-const selectedDays = ref(["Today"]);
+const options = { weekday: "long" };
+const todayWeekday = new Intl.DateTimeFormat("en-US", options).format(new Date());
+
+const selectedDays = ref(["Today", todayWeekday]);
 const labels = ref([]);
 const statsData = ref({});
 const filterFrom = ref(getDefaultFilterFrom());
@@ -159,7 +167,9 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
   });
 }
 
-function getDefaultFilterFrom(diffHours = 3) {
+fetch("/api/live")
+
+function getDefaultFilterFrom(diffHours = 5) {
   const hours = new Date().getHours()
   if (hours > diffHours) {
     const predefiniedHour = (hours - diffHours).toString().padStart(2, 0);
