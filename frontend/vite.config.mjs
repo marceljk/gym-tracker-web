@@ -81,10 +81,15 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      "/api": {
-        target: "http://localhost:14000",
+      "/api/live": {
+        target: "http://localhost:3030",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      "/api": {
+        target: "https://gym.marceljacek.me",
+        changeOrigin: true,
+        // rewrite: (path) => path.replace(/^\/api/, ''),
       }
     }
   },

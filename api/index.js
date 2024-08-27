@@ -91,6 +91,16 @@ app.get(routes, async (req, res) => {
   res.json(results);
 })
 
+app.get("/live", async (req, res) => {
+  try {
+    const response = await axios.get(API_URL, API_OPTIONS);
+    res.json(response.data);
+  } catch (err) {
+    console.error(err)
+    res.status(424).json({ err });
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`GYM Tracker listening at http://localhost:${PORT}`);
 });

@@ -18,17 +18,19 @@
           v-model="filterFrom"
           clearable
         >
-        <!-- v-model="filterFrom" -->
+          <!-- v-model="filterFrom" -->
           <v-dialog v-model="timePickerFrom" activator="parent" width="auto">
             <v-time-picker
               v-if="timePickerFrom"
               format="24hr"
               :allowed-minutes="allowedMinutes"
-              @update:model-value="(e) => {
-                filterFrom = e;
-                timePickerFrom = false;
-              }"
-              ></v-time-picker>
+              @update:model-value="
+                (e) => {
+                  filterFrom = e;
+                  timePickerFrom = false;
+                }
+              "
+            ></v-time-picker>
           </v-dialog>
         </v-text-field>
         <v-text-field
@@ -44,13 +46,32 @@
               v-if="timePickerUntil"
               format="24hr"
               :allowed-minutes="allowedMinutes"
-              @update:model-value="(e) => {
-                filterUntil = e;
-                timePickerUntil = false;
-              }"
-              ></v-time-picker>
+              @update:model-value="
+                (e) => {
+                  filterUntil = e;
+                  timePickerUntil = false;
+                }
+              "
+            ></v-time-picker>
           </v-dialog>
         </v-text-field>
+        <v-card>
+          <div class="d-flex justify-space-between align-center">
+            <v-card-title>Live</v-card-title>
+            <v-btn
+              :loading="isUpdatingVisitors"
+              class="mr-3"
+              variant="text"
+              prepend-icon="mdi-reload"
+              @click="refreshCurrentVisitors"
+            >
+              Refresh
+            </v-btn>
+          </div>
+          <span class="d-flex justify-center mb-3 text-h3">
+            {{ tweenedCurrentVisitors.number.toFixed(0) }}
+          </span>
+        </v-card>
       </v-col>
       <v-col cols="12" md="8">
         <Line id="my-chart-id" :options="chartOptions" :data="chartData" />
@@ -60,7 +81,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, reactive } from "vue";
 import { Line } from "vue-chartjs";
 import {
   Chart as ChartJS,
@@ -72,8 +93,9 @@ import {
   CategoryScale,
   LinearScale,
 } from "chart.js";
-import { CronJob } from 'cron';
-
+import { CronJob } from "cron";
+import gsap from "gsap";
+import { onMounted } from "vue";
 
 ChartJS.register(
   Title,
@@ -108,7 +130,15 @@ const statDays = ref([
 ]);
 
 const options = { weekday: "long" };
-const todayWeekday = new Intl.DateTimeFormat("en-US", options).format(new Date());
+const todayWeekday = new Intl.DateTimeFormat("en-US", options).format(
+  new Date()
+);
+
+const isUpdatingVisitors = ref(false);
+const currentVisitors = ref(0);
+const tweenedCurrentVisitors = reactive({
+  number: 0,
+});
 
 const selectedDays = ref(["Today", todayWeekday]);
 const labels = ref([]);
@@ -123,13 +153,18 @@ const chartOptions = ref({
 const timePickerFrom = ref(false);
 const timePickerUntil = ref(false);
 
-const allowedMinutes = (m) => m % 15 == 0
+const allowedMinutes = (m) => m % 15 == 0;
 
 const job = CronJob.from({
-  cronTime: '5 */15 * * * *',
-  onTick: () => fetchDataAndUpdateStats(selectedDays.value, filterFrom.value, filterUntil.value),
+  cronTime: "5 */15 * * * *",
+  onTick: () =>
+    fetchDataAndUpdateStats(
+      selectedDays.value,
+      filterFrom.value,
+      filterUntil.value
+    ),
   start: true,
-  timeZone: "Europe/Berlin"
+  timeZone: "Europe/Berlin",
 });
 
 // Reset chart data
@@ -147,12 +182,12 @@ async function fetchDataAndUpdateStats(selectedDays, filterFrom, filterUntil) {
       data,
       day,
       index,
-    }
+    };
   });
   const allData = await Promise.all(promises);
-  allData.map(({data, day, index}) => {
+  allData.map(({ data, day, index }) => {
     updateStatsForDay(data, day, index, filterFrom, filterUntil);
-  })
+  });
 }
 
 // Update stats for a specific day
@@ -168,12 +203,26 @@ function updateStatsForDay(data, day, index, filterFrom, filterUntil) {
 }
 
 function getDefaultFilterFrom(diffHours = 5) {
-  const hours = new Date().getHours()
+  const hours = new Date().getHours();
   if (hours > diffHours) {
     const predefiniedHour = (hours - diffHours).toString().padStart(2, 0);
     return `${predefiniedHour}:00`;
   }
   return "";
+}
+
+async function refreshCurrentVisitors() {
+  try {
+    isUpdatingVisitors.value = true;
+    currentVisitors.value = 0;
+    const response = await fetch(`/api/live`);
+    const data = await response.json();
+    currentVisitors.value = data.value;
+  } catch (err) {
+    console.error(err);
+  }
+
+  isUpdatingVisitors.value = false;
 }
 
 const chartData = computed(() => ({
@@ -189,7 +238,6 @@ const chartData = computed(() => ({
   })),
 }));
 
-
 watch(
   [selectedDays, filterFrom, filterUntil],
   async ([newSelectedDays, newFilterFrom, newFilterUntil]) => {
@@ -202,4 +250,12 @@ watch(
   },
   { immediate: true }
 );
+
+watch(currentVisitors, (n) => {
+  gsap.to(tweenedCurrentVisitors, { duration: 0.5, number: Number(n) || 0 });
+});
+
+onMounted(() => {
+  refreshCurrentVisitors();
+});
 </script>
