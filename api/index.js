@@ -18,9 +18,21 @@ const API_OPTIONS = {
 
 const db = new sqlite3.Database('./db/data.db');
 
+const dbRun = (query, params) => {
+  return new Promise((resolve, reject) => {
+    db.run(query, params, (err) => {
+      if (err) {
+        console.error("Failed to run query", err);
+        reject(err);
+      }
+      resolve();
+    });
+  });
+}
+
 db.serialize(() => {
-  db.run('CREATE TABLE IF NOT EXISTS stats (timestamp TEXT PRIMARY KEY, value REAL, weight INTEGER)');
-  db.run('CREATE TABLE IF NOT EXISTS history (timestamp TEXT PRIMARY KEY, value REAL)');
+  dbRun('CREATE TABLE IF NOT EXISTS stats (timestamp TEXT PRIMARY KEY, value REAL, weight INTEGER)');
+  dbRun('CREATE TABLE IF NOT EXISTS history (timestamp TEXT PRIMARY KEY, value REAL)');
 });
 
 // Request every 15 minutes and insert to db
@@ -45,11 +57,11 @@ cron.schedule('*/15 * * * *', async () => {
       const { value: existingValue, weight: existingWeight } = existingRecord;
       const newWeight = existingWeight + 1;
       const averageValue = (existingValue * existingWeight + value) / newWeight;
-      await db.run('UPDATE stats SET value = ?, weight = ? WHERE timestamp = ?', [averageValue, newWeight, timestamp]);
+      await dbRun('UPDATE stats SET value = ?, weight = ? WHERE timestamp = ?', [averageValue, newWeight, timestamp]);
     } else {
-      await db.run('INSERT INTO stats (timestamp, value, weight) VALUES (?, ?, ?)', [timestamp, value, 1]);
+      await dbRun('INSERT INTO stats (timestamp, value, weight) VALUES (?, ?, ?)', [timestamp, value, 1]);
     }
-    await db.run('INSERT INTO history (timestamp, value) VALUES (?, ?)', [moment().format("YYYY/MM/DD HH:mm"), value]);
+    await dbRun('INSERT INTO history (timestamp, value) VALUES (?, ?)', [moment().format("YYYY/MM/DD HH:mm"), value]);
 
     console.log('Data stored successfully for timestamp:', timestamp);
   } catch (error) {
@@ -58,13 +70,14 @@ cron.schedule('*/15 * * * *', async () => {
 });
 
 const requestDataFromDB = async (day) => {
-  let sql = "SELECT * FROM stats WHERE timestamp LIKE ? ORDER BY timestamp";
-  let params = [`${day}%`];
+  if (![...weekdays, "today"].includes(day)) {
+    return [];
+  }
 
   if (day === "today") {
     const todaysDate = moment().format("YYYY/MM/DD");
-    sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
-    params = [`${todaysDate}%`];
+    const sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
+    const params = [`${todaysDate}%`];
 
     const results = await new Promise((resolve, reject) => {
       db.all(sql, params, (err, res) => {
@@ -103,7 +116,7 @@ const getLastWeekdayDate = (weekdayName) => {
 }
 
 const getAverageOfLastXWeeks = async (day, weeks = STATS_WEEKS) => {
-  if (!weekdays.includes(day)) return;
+  if (!weekdays.includes(day)) return [];
   let result = {}
 
   let date = getLastWeekdayDate(day)
@@ -112,8 +125,8 @@ const getAverageOfLastXWeeks = async (day, weeks = STATS_WEEKS) => {
     timestamp.setDate(timestamp.getDate() - (7 * i))
 
     const dateString = moment(timestamp).format("YYYY/MM/DD");
-    sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
-    params = [`${dateString}%`];
+    const sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
+    const params = [`${dateString}%`];
 
     const request = new Promise((resolve, reject) => {
       db.all(sql, params, (err, res) => {
@@ -125,11 +138,11 @@ const getAverageOfLastXWeeks = async (day, weeks = STATS_WEEKS) => {
       });
     });
 
-    dbResult = await Promise.resolve(request)
+    const dbResult = await Promise.resolve(request)
     dbResult.forEach((entry) => {
       let day = moment(entry.timestamp, "YYYY/MM/DD HH:mm").format("dddd, HH:mm")
       if (day in result) {
-        record = result[day]
+        const record = result[day]
         const newWeight = record.weight + 1
         const newValue = ((record.value * record.weight) + entry.value) / newWeight
         result[day] = {
@@ -154,9 +167,14 @@ const weekdays = moment.weekdays().map((weekday) => {
 const routes = [...weekdays.map((day) => "/" + day), "/today"];
 
 app.get(routes, async (req, res) => {
-  const day = req.path.replace("/", "");
-  const results = (await requestDataFromDB(day)).map(({ timestamp, value }) => ({ timestamp, value }));
-  res.json(results);
+  try {
+    const day = req.path.replace("/", "");
+    const results = (await requestDataFromDB(day)).map(({ timestamp, value }) => ({ timestamp, value }));
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "An internal server error occurred." });
+  }
 })
 
 app.get("/live", async (req, res) => {
@@ -165,7 +183,7 @@ app.get("/live", async (req, res) => {
     res.json(response.data);
   } catch (err) {
     console.error(err)
-    res.status(424).json({ err });
+    res.status(500).json({ error: "An internal server error occurred." });
   }
 })
 
