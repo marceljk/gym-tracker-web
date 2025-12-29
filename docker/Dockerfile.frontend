@@ -1,6 +1,6 @@
-FROM node:16.17.0-bullseye-slim 
+FROM node:24-bullseye-slim 
 WORKDIR /usr/src/app 
-COPY . /usr/src/app 
+COPY frontend /usr/src/app 
 RUN npm install
 RUN npm run build
 

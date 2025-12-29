@@ -86,11 +86,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
-      "/api": {
-        target: "https://gym.marceljacek.me",
-        changeOrigin: true,
-        // rewrite: (path) => path.replace(/^\/api/, ''),
-      }
+      // "/api": {
+      //   target: "<replace-target>",
+      //   changeOrigin: true,
+      //   // rewrite: (path) => path.replace(/^\/api/, ''),
+      // }
     }
   },
 })
