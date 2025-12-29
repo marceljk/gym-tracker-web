@@ -7,10 +7,10 @@ ENV X_Tenant=
 
 WORKDIR /home/node/app
 
-COPY package*.json ./
+COPY api/package*.json ./
 RUN npm install
 
-COPY index.js ./
+COPY api/index.js ./
 
 EXPOSE 3030
 CMD ["node",  "index.js"]
