@@ -11,6 +11,22 @@
           open-on-clear
         ></v-select>
         <v-text-field
+          label="Date"
+          :active="datePicker"
+          :focused="datePicker"
+          readonly
+          v-model="selectedDate"
+          clearable
+          @click:clear="selectedDate = null"
+        >
+          <v-dialog v-model="datePicker" activator="parent" width="auto">
+            <v-date-picker
+              v-if="datePicker"
+              @update:model-value="selectDate"
+            ></v-date-picker>
+          </v-dialog>
+        </v-text-field>
+        <v-text-field
           label="From"
           :active="timePickerFrom"
           :focused="timePickerFrom"
@@ -153,7 +169,19 @@ const chartOptions = ref({
 const timePickerFrom = ref(false);
 const timePickerUntil = ref(false);
 
+const datePicker = ref(false);
+const selectedDate = ref(null);
+
 const allowedMinutes = (m) => m % 15 == 0;
+
+function selectDate(e) {
+  if (e) {
+    selectedDate.value = new Date(e.getTime() - (e.getTimezoneOffset() * 60000 )).toISOString().split('T')[0];
+  } else {
+    selectedDate.value = null;
+  }
+  datePicker.value = false;
+}
 
 const job = CronJob.from({
   cronTime: "5 */15 * * * *",
@@ -161,7 +189,8 @@ const job = CronJob.from({
     fetchDataAndUpdateStats(
       selectedDays.value,
       filterFrom.value,
-      filterUntil.value
+      filterUntil.value,
+      selectedDate.value
     ),
   start: true,
   timeZone: "Europe/Berlin",
@@ -174,7 +203,8 @@ function resetChartData() {
 }
 
 // Fetch data for selected days and update stats
-async function fetchDataAndUpdateStats(selectedDays, filterFrom, filterUntil) {
+async function fetchDataAndUpdateStats(selectedDays, filterFrom, filterUntil, selectedDate) {
+  resetChartData();
   const promises = selectedDays.map(async (day, index) => {
     const response = await fetch(`/api/${day.toLowerCase()}`);
     const data = await response.json();
@@ -184,6 +214,18 @@ async function fetchDataAndUpdateStats(selectedDays, filterFrom, filterUntil) {
       index,
     };
   });
+  if (selectedDate) {
+    const promise = (async () => {
+      const response = await fetch(`/api/date/${selectedDate}`);
+      const data = await response.json();
+      return {
+        data,
+        day: selectedDate,
+        index: selectedDays.length,
+      };
+    })();
+    promises.push(promise);
+  }
   const allData = await Promise.all(promises);
   allData.map(({ data, day, index }) => {
     updateStatsForDay(data, day, index, filterFrom, filterUntil);
@@ -239,13 +281,13 @@ const chartData = computed(() => ({
 }));
 
 watch(
-  [selectedDays, filterFrom, filterUntil],
-  async ([newSelectedDays, newFilterFrom, newFilterUntil]) => {
-    resetChartData();
+  [selectedDays, filterFrom, filterUntil, selectedDate],
+  async ([newSelectedDays, newFilterFrom, newFilterUntil, newSelectedDate]) => {
     await fetchDataAndUpdateStats(
       newSelectedDays,
       newFilterFrom,
-      newFilterUntil
+      newFilterUntil,
+      newSelectedDate
     );
   },
   { immediate: true }

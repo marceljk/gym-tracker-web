@@ -177,6 +177,36 @@ app.get(routes, async (req, res) => {
   }
 })
 
+app.get("/date/:dateString", async (req, res) => {
+  try {
+    const { dateString } = req.params;
+    const date = moment(dateString, "YYYY-MM-DD", true);
+
+    if (!date.isValid()) {
+      return res.status(400).json({ error: "Invalid date format. Please use YYYY-MM-DD." });
+    }
+
+    const formattedDate = date.format("YYYY/MM/DD");
+    const sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
+    const params = [`${formattedDate}%`];
+
+    const results = await new Promise((resolve, reject) => {
+      db.all(sql, params, (err, res) => {
+        if (err) {
+          console.error("Failed to get stats from db", err);
+          reject(err);
+        }
+        resolve(res);
+      });
+    });
+
+    res.json(results.map(({ timestamp, value }) => ({ timestamp, value })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "An internal server error occurred." });
+  }
+})
+
 app.get("/live", async (req, res) => {
   try {
     const response = await axios.get(API_URL, API_OPTIONS);
