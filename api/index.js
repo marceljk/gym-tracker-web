@@ -33,6 +33,8 @@ const dbRun = (query, params) => {
 db.serialize(() => {
   dbRun('CREATE TABLE IF NOT EXISTS stats (timestamp TEXT PRIMARY KEY, value REAL, weight INTEGER)');
   dbRun('CREATE TABLE IF NOT EXISTS history (timestamp TEXT PRIMARY KEY, value REAL)');
+
+  dbRun('CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp)');
 });
 
 // Request every 15 minutes and insert to db
@@ -117,48 +119,51 @@ const getLastWeekdayDate = (weekdayName) => {
 
 const getAverageOfLastXWeeks = async (day, weeks = STATS_WEEKS) => {
   if (!weekdays.includes(day)) return [];
-  let result = {}
 
-  let date = getLastWeekdayDate(day)
+  const dateStrings = [];
+  const baseDate = getLastWeekdayDate(day);
+  
   for (let i = 0; i < weeks; i++) {
-    const timestamp = new Date(date)
-    timestamp.setDate(timestamp.getDate() - (7 * i))
+    const targetDate = new Date(baseDate);
+    targetDate.setDate(targetDate.getDate() - (7 * i));
+    dateStrings.push(`${moment(targetDate).format("YYYY/MM/DD")}%`);
+  }
 
-    const dateString = moment(timestamp).format("YYYY/MM/DD");
-    const sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
-    const params = [`${dateString}%`];
+  const placeholders = dateStrings.map(() => 'timestamp LIKE ?').join(' OR ');
+  const sql = `SELECT * FROM history WHERE ${placeholders} ORDER BY timestamp`;
 
-    const request = new Promise((resolve, reject) => {
-      db.all(sql, params, (err, res) => {
-        if (err) {
-          console.error("Failed to get stats from db", err);
-          reject(err);
-        }
-        resolve(res);
+  try {
+    const dbResult = await new Promise((resolve, reject) => {
+      db.all(sql, dateStrings, (err, res) => {
+        if (err) reject(err);
+        else resolve(res || []);
       });
     });
 
-    const dbResult = await Promise.resolve(request)
+    const statsMap = {};
+
     dbResult.forEach((entry) => {
-      let day = moment(entry.timestamp, "YYYY/MM/DD HH:mm").format("dddd, HH:mm")
-      if (day in result) {
-        const record = result[day]
-        const newWeight = record.weight + 1
-        const newValue = ((record.value * record.weight) + entry.value) / newWeight
-        result[day] = {
-          weight: newWeight,
-          value: newValue
-        }
-      } else {
-        result[day] = {
-          weight: 1,
-          value: entry.value
-        }
+      const groupKey = moment(entry.timestamp, "YYYY/MM/DD HH:mm").format("dddd, HH:mm");
+      
+      if (!statsMap[groupKey]) {
+        statsMap[groupKey] = { sum: 0, count: 0 };
       }
-    })
+      
+      statsMap[groupKey].sum += entry.value;
+      statsMap[groupKey].count += 1;
+    });
+
+    // 4. Format for the frontend
+    return Object.entries(statsMap).map(([timestamp, data]) => ({
+      timestamp,
+      value: data.sum / data.count // The average
+    }));
+
+  } catch (error) {
+    console.error("Database error in getAverageOfLastXWeeks:", error);
+    return [];
   }
-  return Object.entries(result).map(([timestamp, data]) => ({ timestamp, value: data.value }))
-}
+};
 
 const weekdays = moment.weekdays().map((weekday) => {
   return weekday.toLowerCase();
