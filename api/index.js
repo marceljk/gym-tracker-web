@@ -2,6 +2,7 @@ const axios = require('axios');
 const sqlite3 = require('sqlite3').verbose();
 const cron = require('node-cron');
 const moment = require('moment');
+const NodeCache = require('node-cache');
 
 const express = require('express');
 const app = express();
@@ -17,6 +18,7 @@ const API_OPTIONS = {
 };
 
 const db = new sqlite3.Database('./db/data.db');
+const cache = new NodeCache({ stdTTL: 15 * 60 }); // 15 minutes default TTL
 
 const dbRun = (query, params) => {
   return new Promise((resolve, reject) => {
@@ -65,6 +67,8 @@ cron.schedule('*/15 * * * *', async () => {
     }
     await dbRun('INSERT INTO history (timestamp, value) VALUES (?, ?)', [moment().format("YYYY/MM/DD HH:mm"), value]);
 
+    // Invalidate cache
+    cache.del(cache.keys());
     console.log('Data stored successfully for timestamp:', timestamp);
   } catch (error) {
     console.error('Error occurred:', error);
@@ -76,12 +80,18 @@ const requestDataFromDB = async (day) => {
     return [];
   }
 
+  const cachedData = cache.get(day);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  let results;
   if (day === "today") {
     const todaysDate = moment().format("YYYY/MM/DD");
     const sql = "SELECT * FROM history WHERE timestamp LIKE ? ORDER BY timestamp";
     const params = [`${todaysDate}%`];
 
-    const results = await new Promise((resolve, reject) => {
+    results = await new Promise((resolve, reject) => {
       db.all(sql, params, (err, res) => {
         if (err) {
           console.error("Failed to get stats from db", err);
@@ -90,10 +100,12 @@ const requestDataFromDB = async (day) => {
         resolve(res);
       });
     });
-    return results;
   } else {
-    return getAverageOfLastXWeeks(day)
+    results = await getAverageOfLastXWeeks(day)
   }
+
+  cache.set(day, results);
+  return results;
 }
 
 const getLastWeekdayDate = (weekdayName) => {
@@ -104,7 +116,7 @@ const getLastWeekdayDate = (weekdayName) => {
   }
 
   const today = new Date();
-  const todayDay = today.getUTCDay();
+  const todayDay = today.getDay();
 
   let difference = targetDay - todayDay;
   if (difference >= 0) {
@@ -185,6 +197,12 @@ app.get(routes, async (req, res) => {
 app.get("/date/:dateString", async (req, res) => {
   try {
     const { dateString } = req.params;
+    
+    const cachedData = cache.get(`date-${dateString}`);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
     const date = moment(dateString, "YYYY-MM-DD", true);
 
     if (!date.isValid()) {
@@ -205,7 +223,16 @@ app.get("/date/:dateString", async (req, res) => {
       });
     });
 
-    res.json(results.map(({ timestamp, value }) => ({ timestamp, value })));
+    const responseData = results.map(({ timestamp, value }) => ({ timestamp, value }));
+    
+    // Only cache if the date is in the past (won't change)
+    if (date.isBefore(moment(), 'day')) {
+      cache.set(`date-${dateString}`, responseData, 3600 * 24); // Cache past dates for 24 hours
+    } else {
+      cache.set(`date-${dateString}`, responseData, 600); // Cache today's specific date for 10 mins
+    }
+
+    res.json(responseData);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "An internal server error occurred." });
@@ -214,7 +241,13 @@ app.get("/date/:dateString", async (req, res) => {
 
 app.get("/live", async (req, res) => {
   try {
+    const cachedLive = cache.get('live');
+    if (cachedLive) {
+      return res.json(cachedLive);
+    }
+
     const response = await axios.get(API_URL, API_OPTIONS);
+    cache.set('live', response.data, 60); // Cache live data for 1 minute
     res.json(response.data);
   } catch (err) {
     console.error(err)
