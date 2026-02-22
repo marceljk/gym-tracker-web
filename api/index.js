@@ -255,7 +255,31 @@ app.get("/live", async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Using ${STATS_WEEKS} weeks for stats`)
   console.log(`GYM Tracker listening at http://localhost:${PORT}`);
 });
+
+const gracefulShutdown = () => {
+  console.log('Received kill signal, shutting down gracefully');
+  server.close(() => {
+    console.log('Closed out remaining connections');
+    db.close((err) => {
+      if (err) {
+        console.error('Error closing database', err);
+        process.exit(1);
+      }
+      console.log('Database connection closed');
+      process.exit(0);
+    });
+  });
+
+  // Force close after 10s
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
