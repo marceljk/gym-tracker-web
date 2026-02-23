@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"log"
 	"net/http"
 	"os"
@@ -66,8 +68,9 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	// Gin setup
+	// Gin setup)
 	r := gin.Default()
+	r.Use(ETag())
 
 	weekdays := []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
 	for _, day := range weekdays {
@@ -84,8 +87,11 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: r,
+		Addr:         ":" + port,
+		Handler:      r,
+		IdleTimeout:  90 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
 	go func() {
@@ -346,4 +352,48 @@ func handleLive(c *gin.Context) {
 
 	appCache.Set("live", result, 1*time.Minute)
 	c.JSON(http.StatusOK, result)
+}
+
+func ETag() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			c.Next()
+			return
+		}
+
+		// Buffer the response
+		bw := &bodyWriter{body: bytes.NewBuffer(nil), ResponseWriter: c.Writer}
+		c.Writer = bw
+		c.Next()
+
+		if bw.Status() == http.StatusOK && bw.body.Len() > 0 {
+			// Calculate ETag from body content
+			hash := crc32.ChecksumIEEE(bw.body.Bytes())
+			etag := fmt.Sprintf("W/\"%x\"", hash)
+			c.Header("ETag", etag)
+
+			// Check if ETag matches If-None-Match header
+			if c.GetHeader("If-None-Match") == etag {
+				c.Status(http.StatusNotModified)
+				bw.body.Reset() // Don't send the body
+			}
+		}
+
+		// Set the final Content-Length and write the body
+		c.Header("Content-Length", strconv.Itoa(bw.body.Len()))
+		bw.ResponseWriter.Write(bw.body.Bytes())
+	}
+}
+
+type bodyWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w *bodyWriter) Write(b []byte) (int, error) {
+	return w.body.Write(b)
+}
+
+func (w *bodyWriter) WriteString(s string) (int, error) {
+	return w.body.WriteString(s)
 }
