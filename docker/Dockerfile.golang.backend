@@ -18,8 +18,6 @@ WORKDIR /
 
 COPY --from=build-stage /gym-backend /gym-backend
 
-USER nonroot:nonroot
-
-COPY --from=build-stage --chown=nonroot:nonroot /db /db
+# USER nonroot:nonroot
 
 ENTRYPOINT ["/gym-backend"]
