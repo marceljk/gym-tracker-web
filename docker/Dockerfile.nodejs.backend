@@ -12,5 +12,4 @@ RUN npm install
 
 COPY api/nodejs/index.js ./
 
-EXPOSE 3030
 CMD ["node",  "index.js"]
