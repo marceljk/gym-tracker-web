@@ -1,6 +1,4 @@
-ARG NODE_VERSION=20.11.1
-
-FROM node:${NODE_VERSION}-alpine
+FROM node:20.11.1-alpine
 
 ENV API_URL=
 ENV X_Tenant=
