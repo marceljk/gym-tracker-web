@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/ncruces/go-sqlite3 v0.34.1
+	github.com/ncruces/go-sqlite3 v0.34.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/robfig/cron/v3 v3.0.1
 )
@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/ncruces/go-sqlite3-wasm/v2 v2.2.35301 // indirect
+	github.com/ncruces/go-sqlite3-wasm/v2 v2.4.35301 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
